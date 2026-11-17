@@ -1,0 +1,13 @@
+# 编译产物（colcon）
+build/
+install/
+log/
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# 系统杂项
+Thumbs.db
+.DS_Store
