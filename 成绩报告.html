@@ -110,5 +110,5 @@ footer { margin-top:44px; color:var(--muted); font-size:13px; border-top:1px sol
 <div class="note">前三项（固定靶）已到该配置的计分上限，剩余误差全在“死后弹”，继续调参没有收益。<b>真正可改进的是第六项</b>：平均 0.6004 / 5.57 s，31 发才打爆 18 发，落地 10.3 发、离靶 2.0 发，是六项里唯一没进 3 s 的。根因是折返段速度接近 0 时拟合残差升高触发主动停火，叠加旋转靶 70° 级提前量下的选板抖动。下一步按“四板加权平均重建板心 + 连续相位预测”重写状态估计，而不是继续调阈值。</div>
 <h2>五、合规与复现</h2>
 <div class=note>· 未修改仿真逻辑、目标运动参数、伤害与命中判定；未使用内置辅助瞄准；未通过 ROS 2 接口以外的通道读取真值；全程无人手动控云台或开火。<br>· 只订阅 <code>/aim_sim/armors</code>、<code>/aim_sim/gimbal</code>、<code>/aim_sim/telemetry</code>，只发布 <code>/aim_sim/command</code>。<br>· 复现：<code>colcon build --packages-select student_auto_aim</code> → <code>./run.sh</code> → <code>ros2 run student_auto_aim aim_node --ros-args -p use_sim_time:=true</code>，每局按 R 归零后开打。</div>
-<footer>截图说明：界面上的 <code>T</code> 是本局累计仿真时间（含击毁后到点击导出的间隔），与本报告中的 <code>kill_time</code> 不完全相等；<code>kill_time</code> 取自导出的 JSON，两者趋势一致、可用于互证。<br>原始文件：<code>成绩/</code> 下 18 份 JSON（仿真 captures 原文件，仅重命名），<code>成绩截图/</code> 下 18 张原始整屏截图与 <code>裁剪/</code> 下 18 张窗口截图。</footer>
+<footer>截图说明：界面上的 <code>T</code> 是本局累计仿真时间（含击毁后到点击导出的间隔），与本报告中的 <code>kill_time</code> 不完全相等；<code>kill_time</code> 取自导出的 JSON，两者趋势一致、可用于互证。<br>原始文件：<code>成绩/</code> 下 18 份 JSON（仿真 captures 原文件，仅重命名），<code>成绩截图/</code> 下 18 张窗口截图（每局一张，与 JSON 同名）。</footer>
 </body></html>
