@@ -4,7 +4,7 @@
 ## 1. 目录结构
 
 ```
-student_auto_aim
+Zhiheng Shen
 ├── CMakeLists.txt
 ├── package.xml
 ├── config
