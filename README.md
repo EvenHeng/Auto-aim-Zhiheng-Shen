@@ -8,16 +8,16 @@ Zhiheng Shen
 ├── CMakeLists.txt
 ├── package.xml
 ├── config
-│   └── aim_params.yaml          # 全部可调参数
+│   └── aim_params.yaml          
 ├── launch
-│   └── aim.launch.py            # 带 use_sim_time 的启动文件
+│   └── aim.launch.py          
 ├── include
 │   └── student_auto_aim
 │       └── aim_node.hpp
 └── src
-    └── aim_node.cpp             # 节点全部实现
-├── README.md                    # 本文档
-└── 成绩                          # 六项成绩原始导出（round_*.json，见第 7 节）
+    └── aim_node.cpp         
+├── README.md                   
+└── 成绩                       
 ```
 
 ## 2. 依赖与编译
