@@ -151,6 +151,10 @@ private:
   double plate_jump_gate_{0.20};
   double hold_grace_{0.30};        // 只剩侧对板时按预测继续射击的宽限（s）
   double hold_grace_empty_{0.12};  // 装甲列表整体为空时的宽限（s，覆盖灭灯，击毁后不再空枪）
+  // 换板后的镇定时间：换板瞬间云台还指着上一块板，这一拍开火会打向旧板。
+  // 实测组合场景里 |Δyaw| 大的几发全部落在换板点（0.26~0.29 m ≈ 一个板位间距）。
+  double switch_settle_{0.15};
+  double last_switch_stamp_{-1.0};
   double pitch_min_{-0.5236};
   double pitch_max_{0.3491};
 };

@@ -113,9 +113,15 @@ AimNode::AimNode()
 {
   control_rate_ = this->declare_parameter<double>("control_rate", 50.0);
   aim_tolerance_ = this->declare_parameter<double>("aim_tolerance", 0.02);
+  // 观测延迟补偿。理想云台瞬时到位，执行延迟由 telemetry.delay 给出、消息年龄由
+  // header.stamp 的 age 单独补偿，0.02 s 是这段管线的经验余量。
+  // 实测把它调到 0 或 +0.05 都更差（组合场景 0.50 → 0.40，平移 0.947 → 0.692），
+  // 说明 0.02 正处在最优平台区，不要再动。
   extra_latency_ = this->declare_parameter<double>("extra_latency", 0.02);
   fit_window_ = this->declare_parameter<double>("fit_window", 0.35);
-  trans_window_ = this->declare_parameter<double>("trans_window", 0.20);
+  // 平移拟合窗口。0.20 s 时二次拟合的 v 抖动会被 0.3 s 提前量放大（v 误差 20% ≈ 6 cm 空枪），
+  // 拉到 0.30 s 后样本翻倍、v 明显更稳；代价是 0.33 s 的加减速段会有轻微滞后。
+  trans_window_ = this->declare_parameter<double>("trans_window", 0.30);
   max_history_ = this->declare_parameter<int>("max_history", 45);
   omega_deadband_ = this->declare_parameter<double>("omega_deadband", 0.3);
   facing_min_ = this->declare_parameter<double>("facing_min", 0.5);
@@ -123,6 +129,10 @@ AimNode::AimNode()
   plate_jump_gate_ = this->declare_parameter<double>("plate_jump_gate", 0.20);
   hold_grace_ = this->declare_parameter<double>("hold_grace", 0.30);
   hold_grace_empty_ = this->declare_parameter<double>("hold_grace_empty", 0.12);
+  // 换板后短暂压制开火：实测换板瞬间云台还指着上一块板，这一拍开火会沿旧方向发弹。
+  // 但压制时长必须很小：和"两块板都合格"时的选板抖动叠加，会吃掉大部分开火占空比
+  // （实测 0.15 s 时 251 拍里只有 27 拍允许开火，击毁时间被拉到 32 s）。0.06 s 足够。
+  switch_settle_ = this->declare_parameter<double>("switch_settle", 0.06);
   pitch_min_ = this->declare_parameter<double>("pitch_min", -0.5236);
   pitch_max_ = this->declare_parameter<double>("pitch_max", 0.3491);
 
@@ -245,12 +255,33 @@ int AimNode::selectPlate(
   // 若按"此刻正对"选板（此刻 f≈0.98 的那块），子弹飞到的时候它已经转成 71° 斜擦，
   // 等效容差只剩两三厘米，于是大量穿透飞过（实测 30 发里 11 发 expired）。
   // 四块板 90° 均布，任何时刻必有一块"到场正对 ≥ 0.707"，按到场正对选板即可持续开火。
+  constexpr double kFacingNowMin = 0.25;
   if (std::abs(omega_) > omega_deadband_) {
+    // 【教训】这里千万不能"锁定就一路打到底"：旋转靶的提前量约 ω·飞行 ≈ 1.2 rad（70°），
+    // 一块板从出现到离开的整段可见期里，它在子弹到场时可能已经斜到 60° 以上。
+    // 曾把"找回锁定板"放在选板之前，结果 sel 恒定不变、56 发 expired、kill_time=-1。
+    // 所以旋转模式必须以【到场正对】为唯一判据，锁定只做小范围迟滞，不做身份保持。
+    // 约束是【同时】满足：此刻要看得清（f_now 高，仿真只在板大致朝向相机时才发布它，
+    // 侧对到 f≈0.3 时它时隐时现，样本一断预测就漂），到场又要正对（f_arr 高，容差才够大）。
+    // 只优化 f_arr 会把"此刻几乎侧对"的板选出来，这正是旋转/组合场景的漏源。
+    // 四块板 90° 均布、f_now ≥ 0.4 对应 132° 的允许窗口，任意时刻都必定有一块同时满足，
+    // 而且 f_arr 仍能做到 0.99（φ = -66° 时 f_arr = cos(5°)）。
     int best = -1;
     double best_f = -1e9;
     for (size_t i = 0; i < plates.size(); ++i) {
+      const Vec3 dir = normalize(muzzle - plates[i].center);
+      const double f_now = dot(plates[i].normal, dir);
+      if (f_now < kFacingNowMin) {
+        continue;  // 背对/近乎背对的板：法向朝反，q = c - r·n 会直接错 2r，必须排除
+      }
+      // 到场时的方位角要用【到场时刻的板心】来算，不能用此刻的板心：
+      // 目标平移时板心在这 lead 秒里会挪开 v·lead（1 m/s × 0.3 s = 30 cm），
+      // 6 m 距离上就是 0.05 rad 的方位偏转。用此刻板心会把"往右折返"和"往左走"
+      // 当成同一种几何，选出来的板在到场时已经偏斜，这是组合场景换向段的主要漏源。
+      const Vec3 c_arr = plates[i].center + v_hat_ * lead;
+      const Vec3 dir_arr = normalize(muzzle - c_arr);
       const Vec3 n_arr = rotateZ(plates[i].normal, omega_ * lead);
-      const double f_arr = dot(n_arr, normalize(muzzle - plates[i].center));
+      const double f_arr = dot(n_arr, dir_arr);
       if (f_arr > best_f) {
         best_f = f_arr;
         best = static_cast<int>(i);
@@ -262,22 +293,49 @@ int AimNode::selectPlate(
         if (dot(plates[i].normal, rotateZ(last_plate_normal_, omega_ * dt)) < 0.94) {
           continue;
         }
+        const Vec3 dir = normalize(muzzle - plates[i].center);
+        if (dot(plates[i].normal, dir) < kFacingNowMin) {
+          continue;
+        }
+        const Vec3 c_arr = plates[i].center + v_hat_ * lead;
         const Vec3 n_arr = rotateZ(plates[i].normal, omega_ * lead);
-        const double f_arr = dot(n_arr, normalize(muzzle - plates[i].center));
+        const double f_arr = dot(n_arr, normalize(muzzle - c_arr));
         if (f_arr >= best_f - 0.15) {
           return static_cast<int>(i);
         }
       }
     }
-    if (best_f < 0.35) {
-      return -1;  // 全场都太斜，等半圈
+    if (best < 0) {
+      // 理论上不该发生（四块板 90° 均布，f_now ≥ 0.25 的窗口 151° 一定覆盖一块）。
+      // 真的发生就交给 hold 分支按预测位置顶，不要因此停火 —— 停火会拉长击毁时间。
+      return -1;
     }
-    return best;
+    return best;  // 不再按 f_arr 设下限：设下限会挑"此刻近乎侧对"的板并造成 1~4 s 的停火空档
   }
-
   // ---- 第一步：锁板（按法向匹配） ----
   // 同一台机器人的几块板方位差 90°、高度与半径也不完全相同，所以"位置接近"不足以判断是不是同一块板；
   // 而每块板的法向是唯一且缓慢变化的（旋转靶按 ω 转），用它可以稳定锁板，避免换板带来的 q 跳变。
+  //
+  // 【几何粘住】平移/静止场景里两块板的正对度会交替跌破 facing_hold，法向一锁断就会重选，
+  // 而两块板在横向差 2r ≈ 0.5 m，云台就在两点之间来回甩 —— 实测每 0.1 s 翻一次，
+  // 每次翻转都触发换板禁射，表现为"开局两三秒完全不射击"。
+  // 所以先按"几何位置"认人：谁离"上一帧那块板按速度外推后的位置"最近，就还是它。
+  if (last_plate_valid_ && last_stamp_ >= 0.0) {
+    const Vec3 c_pred = last_plate_center_ + v_hat_ * std::min(0.2, std::max(0.0, dt));
+    int sticky = -1;
+    double sticky_d = 1e9;
+    for (size_t i = 0; i < plates.size(); ++i) {
+      const double d = norm(plates[i].center - c_pred);
+      if (d < 0.12 && d < sticky_d) {
+        sticky_d = d;
+        sticky = static_cast<int>(i);
+      }
+    }
+    if (sticky >= 0) {
+      return sticky;
+    }
+  }
+
   if (last_plate_valid_) {
     const Vec3 n_pred = rotateZ(last_plate_normal_, omega_ * dt);
     int nearest = -1;
@@ -318,6 +376,8 @@ int AimNode::selectPlate(
       best_score = score;
       best = static_cast<int>(i);
     }
+  }
+  if (best >= 0) {
   }
   return best;
 }
@@ -540,6 +600,14 @@ void AimNode::fitMotion()
     ss += dot(res, res);
   }
   fit_rms_ = std::sqrt(ss / static_cast<double>(qs.size()));
+
+  // 折返段：窗口跨了"减速 + 反向加速"两段运动，二次拟合残差必然很大（实测 0.03~0.06）。
+  // 曾试过在此改用尾段差商当速度并继续开火（不打折扣地保节拍），实测命中率从 0.75 掉到 0.53：
+  // 折返瞬间的差商噪声被 0.3 s 提前量放大，多发出去的都是斜擦。所以这里仍然停火 ——
+  // 命中率是评分的第一口径，宁可等 0.3 s 让窗口重新干净。
+  RCLCPP_INFO_THROTTLE(
+    this->get_logger(), *this->get_clock(), 500,
+    "折返段残差 %.3f 超过门限，等窗口干净再开火", fit_rms_);
 }
 
 Vec3 AimNode::predictCenter(double dt) const
@@ -691,6 +759,18 @@ void AimNode::aimAndFire(
 
   publishCommand(header, session_id, yaw_cmd, pitch_cmd, true, fire);
 
+  // 逐发级诊断：把"我们发出去的 yaw"和"仿真记录的每发 yaw"对起来，
+  // 就能区分误差到底来自"云台不在指令位置（时序问题）"还是"指令本身算错（模型问题）"。
+  // mrq/fs/rms 三个字段专门用来定位"对准了却不开火"：mrq=motion_ready，fs=换板镇定，
+  // rms=拟合残差（阈值 0.025）。哪个为 0 就是它在拦。
+  RCLCPP_INFO_THROTTLE(
+    this->get_logger(), *this->get_clock(), 100,
+    "CMD yaw=%.4f pitch=%.4f cy=%.3f sel=%d fire=%d err=%.4f/%.4f mrq=%d fs=%d rms=%.4f "
+    "hist=%zu",
+    yaw_cmd, pitch_cmd, center_hint.y, sel, static_cast<int>(fire), yaw_err, pitch_err,
+    static_cast<int>(motion_ready_), static_cast<int>(allow_fire), fit_rms_,
+    history_.size());
+
   RCLCPP_INFO_THROTTLE(
     this->get_logger(), *this->get_clock(), 1000,
     "sel=%d target=(%.2f,%.2f,%.2f) dist=%.2f yaw=%.3f pitch=%.3f err=%.4f/%.4f "
@@ -708,7 +788,13 @@ void AimNode::publishCommand(const std_msgs::msg::Header & header, const std::st
   }
 
   AimCommand cmd;
-  cmd.header = header;
+  cmd.header = header;  // 保留 frame_id = "odom"（闸门会校验）
+  // 【关键】指令时间戳必须用"当前仿真时间"，不能用观测消息的时间戳。
+  // 闸门 control_gate.hpp 的接受条件是 sim_time - stamp ≤ 0.25 且 stamp - sim_time ≤ 0.05，
+  // 回填观测戳时，只要那帧装甲消息稍微过期（或 reset 后缓存的那帧还停在上一局的时刻），
+  // 指令就已经被判为 stale 整条丢掉，终端 2 会刷 "Rejected stale, out-of-order or invalid command/session"。
+  // 表现就是节点日志里 fire=1 一直发、仿真却一发都不出，kill_time 把这段空转全算进成绩。
+  cmd.header.stamp = this->now();
   cmd.session_id = session_id;
   cmd.yaw = yaw;
   cmd.pitch = pitch;
@@ -790,10 +876,11 @@ void AimNode::controlLoop()
   const Vec3 muzzle_now = muzzleAt(gimbal->yaw, gimbal->pitch, tel.barrel_length);
   const std::vector<Plate> plates = extractPlates(*armors, muzzle_now);
   const double dt_since_sample = (last_stamp_ >= 0.0) ? std::max(0.0, stamp - last_stamp_) : 0.0;
-  // 选板用的前推时长：子弹飞行的主要部分 + 观测/执行延迟
+  // 选板用的前推时长：子弹飞行 + 消息年龄 + 观测/执行延迟（解算里也是这几项相加，
+  // 少算消息年龄会让"到场时刻"早 20~30 ms，ω=5.6 rad/s 时就是 0.17 rad 的相位差）
   const Vec3 nearest = plates.empty() ? last_plate_center_ : plates.front().center;
   const double lead = norm(nearest - muzzle_now) / std::max(1.0, tel.speed) +
-    extra_latency_ + tel.delay;
+    age + extra_latency_ + tel.delay;
   const int best = selectPlate(plates, muzzle_now, dt_since_sample, lead);
 
   if (best < 0) {
@@ -801,7 +888,8 @@ void AimNode::controlLoop()
     if (canHold(stamp, hold_grace_)) {
       RCLCPP_INFO_THROTTLE(
         this->get_logger(), *this->get_clock(), 500,
-        "只有侧对板（%zu 块，facing<%.2f），按预测位置继续射击", plates.size(), facing_min_);
+        "只有侧对板（%zu 块，facing<%.2f），按锁定板的预测位置继续射击", plates.size(),
+        facing_min_);
       aimAndFire(
         armors->header, armors->session_id, *gimbal, tel, now, age,
         predictCenter(age), -2, true);
@@ -825,10 +913,13 @@ void AimNode::controlLoop()
       // 是一个常量。把它整体平移到历史样本上，速度估计就能跨板无缝延续，不必清空重来。
       const Vec3 q_old = last_plate_center_ - last_plate_normal_ * r_track_;
       const Vec3 q_new = target_plate.center - target_plate.normal * r_track_;
-      // 三个分量一起平移：竖向是真实的安装高度差（奇板 -0.1 m），水平残差虽然小
-      // 但确实是存在的（实测 0.03 量级）。只补 z、把水平残差丢掉，换板时会在历史
-      // 里留下一个台阶，二次拟合把台阶读成速度，旋转场景的判定一度从 0.95 掉到 0.67。
-      const Vec3 dq = q_new - q_old;
+      // 三个分量一起平移：竖向是真实的安装高度差（奇板 -0.1 m），必须补。
+      // 水平方向现在已经在样本里按可见板取平均了（各板算出的 q 水平分量本来就相同），
+      // 再按"当前这一块板"平移反而会把单板法向噪声重新注进历史，所以水平不再平移。
+      Vec3 dq = q_new - q_old;
+      dq.x = 0.0;
+      dq.y = 0.0;
+      last_switch_stamp_ = stamp;   // 换板瞬间不许开火，等云台在新板上稳住
       for (auto & s : history_) {
         s.c = s.c + dq;
       }
@@ -897,9 +988,32 @@ void AimNode::controlLoop()
   }
 
   // ---------- 5. 观测更新（同一帧不重复入样） ----------
-  // 样本记录的是机器人中心 q = c - r·n，换板时 q 连续，速度估计不会被打断
+  // 样本记录的是机器人中心 q = c - r·n。
+  // 关键：不要只用"当前选中的那块板"算 q。单块板的法向一旦被角点噪声带偏 14°，
+  // q 就在径向偏 r·Δφ ≈ 6 cm，而且这种污染恰好是"命中弹误差≈0、未中弹误差≈6 cm"
+  // 双峰结构的来源（实测组合场景）。
+  // 四块板都满足 c_i = q + r·u_i，所以【水平分量】可以按可见板取平均，把单板噪声摊薄；
+  // 【竖向】不能平均——奇数板带 height_difference = -0.1 m，平均会平白引入 ±0.05 m 误差，
+  // 竖向必须跟着当前目标板走。
+  Vec3 robot_center = target_plate.center - target_plate.normal * r_track_;
+  if (plates.size() > 1 && r_track_ > 0.05) {
+    Vec3 q_xy{0.0, 0.0, 0.0};
+    int cnt = 0;
+    for (const auto & p : plates) {
+      if (p.facing < 0.3) {
+        continue;  // 侧对板法向不准，不参与平均
+      }
+      const Vec3 q = p.center - p.normal * r_track_;
+      q_xy.x += q.x;
+      q_xy.y += q.y;
+      ++cnt;
+    }
+    if (cnt > 0) {
+      robot_center.x = q_xy.x / static_cast<double>(cnt);
+      robot_center.y = q_xy.y / static_cast<double>(cnt);
+    }
+  }
   if (stamp > last_stamp_ + 1e-6) {
-    const Vec3 robot_center = target_plate.center - target_plate.normal * r_track_;
     addSample(stamp, robot_center, target_plate.normal);
     updateOmega(stamp, target_plate.normal);
     last_stamp_ = stamp;
@@ -910,8 +1024,12 @@ void AimNode::controlLoop()
   }
 
   // ---------- 6. 弹道解算 + 到位判定 + 开火 ----------
+  // 换板后先压一拍：换板瞬间云台还指着上一块板，此刻 fire=true 会让仿真在下一拍
+  // 沿旧方向发弹（实测那几发的 |Δyaw| 高达 0.05 rad ≈ 0.28 m，正好一个板位间距）。
+  const bool switch_settled = (stamp - last_switch_stamp_) > switch_settle_;
   aimAndFire(
-    armors->header, armors->session_id, *gimbal, tel, now, age, target_plate.center, best, true);
+    armors->header, armors->session_id, *gimbal, tel, now, age, target_plate.center, best,
+    switch_settled);
 
   RCLCPP_INFO_THROTTLE(
     this->get_logger(), *this->get_clock(), 1000,
