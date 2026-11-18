@@ -1,0 +1,114 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
+<title>RoboMaster 视觉组二轮考核 · 成绩报告</title>
+<style>
+:root { --ink:#1a2230; --muted:#5b6878; --line:#dfe4ec; --accent:#0f6ad8; --warn:#c2410c; }
+* { box-sizing:border-box; }
+body { margin:0; padding:40px 48px 64px; font-family:"Segoe UI","Microsoft YaHei",sans-serif;
+       color:var(--ink); background:#fff; line-height:1.7; font-size:15px; }
+h1 { font-size:28px; margin:0 0 6px; letter-spacing:.5px; }
+.sub { color:var(--muted); font-size:14px; margin-bottom:28px; }
+h2 { font-size:20px; margin:38px 0 12px; padding-left:10px; border-left:4px solid var(--accent); }
+h3 { font-size:16px; margin:26px 0 10px; color:#243243; }
+table { border-collapse:collapse; width:100%; font-size:14px; margin:10px 0 6px; }
+th,td { border:1px solid var(--line); padding:7px 10px; text-align:center; }
+th { background:#f4f7fb; font-weight:600; }
+td.l,th.l { text-align:left; }
+tr.total td { background:#f8fafd; font-weight:600; }
+.note { background:#f6f8fc; border-left:3px solid var(--accent); padding:12px 16px; margin:14px 0;
+        font-size:14px; color:#2b3a4d; }
+.warn { background:#fdf5f0; border-left:3px solid var(--warn); }
+.fig { display:flex; gap:12px; margin:14px 0 6px; }
+.fig figure { flex:1; margin:0; border:1px solid var(--line); border-radius:6px; overflow:hidden; background:#fbfcfe; }
+.fig img { width:100%; display:block; }
+.fig figcaption { padding:8px 10px; font-size:13px; color:var(--muted); border-top:1px solid var(--line); }
+.fig figcaption b { color:var(--ink); font-size:15px; }
+.big { font-size:17px; font-weight:700; }
+.tag { display:inline-block; padding:1px 8px; border-radius:10px; font-size:12px;
+       background:#eef4ff; color:#14478f; margin-right:6px; }
+.tag.g { background:#eefaf1; color:#14663a; }
+.tag.r { background:#fdf0ec; color:#a2330f; }
+footer { margin-top:44px; color:var(--muted); font-size:13px; border-top:1px solid var(--line); padding-top:14px; }
+</style></head><body>
+<h1>RoboMaster 视觉组二轮考核 · 成绩报告</h1>
+<div class="sub">自瞄仿真 Aim Lab · ROS 2 Jazzy · 六项任务 × 三轮 · 采集时间 2026-11-18 16:14–16:20 · 每个数字均附当局界面截图</div>
+<h2>一、总览</h2>
+<table><tr><th>任务</th><th class=l>场景</th><th>第1轮<br>命中率 / 击毁</th><th>第2轮</th><th>第3轮</th><th>平均命中率</th><th>平均击毁 (s)</th></tr>
+<tr><td>一</td><td class=l>4m固定靶</td><td>0.9474<br>2.02 s</td><td>0.9474<br>2.04 s</td><td>0.9474<br>2.04 s</td><td class=big>0.9474</td><td class=big>2.04</td></tr>
+<tr><td>二</td><td class=l>6m固定靶</td><td>0.9000<br>2.38 s</td><td>1.0000<br>2.33 s</td><td>0.9474<br>2.12 s</td><td class=big>0.9491</td><td class=big>2.28</td></tr>
+<tr><td>三</td><td class=l>10m固定靶</td><td>0.9474<br>2.30 s</td><td>0.8571<br>2.31 s</td><td>0.8182<br>2.35 s</td><td class=big>0.8742</td><td class=big>2.32</td></tr>
+<tr><td>四</td><td class=l>6m平移</td><td>0.7826<br>3.17 s</td><td>0.7826<br>3.15 s</td><td>0.7826<br>2.82 s</td><td class=big>0.7826</td><td class=big>3.05</td></tr>
+<tr><td>五</td><td class=l>6m旋转</td><td>0.8571<br>2.63 s</td><td>0.8182<br>2.64 s</td><td>0.8571<br>2.64 s</td><td class=big>0.8442</td><td class=big>2.64</td></tr>
+<tr><td>六</td><td class=l>6m平移加旋转</td><td>0.6000<br>5.61 s</td><td>0.5806<br>5.60 s</td><td>0.6207<br>5.49 s</td><td class=big>0.6004</td><td class=big>5.57</td></tr>
+</table>
+<div class="note">参数：平移 1.0 m·s⁻¹ / 加速度 3.0 m·s⁻² / 半程 1.5 m；旋转 4.0 rad·s⁻¹；弹速 23 m·s⁻¹；单发伤害 20；射速 10 Hz；350 HP（18 发命中即击毁）。每局开打前按 <b>R</b> 归零，击毁后点「导出统计与事件」，截图在导出后 2 秒自动拍摄。</div>
+<h2>二、前三项为什么不是 100%</h2>
+<div class="note">结论先说：<b>前三项没有一发打歪</b>——落地 0、离靶 0，每一发都打在靶面上。命中率丢的那几个点，全部来自<b>“死后弹”</b>：击毁判定成立之后才到达靶面的子弹。这是计分口径决定的物理上限，不是瞄准精度问题。</div>
+<h3>2.1 口径：分母是“击毁前一共打出多少发”，不是“打中多少发”</h3>
+<table><tr><th class=l>量</th><th class=l>含义</th></tr><tr><td class=l><code>valid_hits</code></td><td class=l>有效命中，恒为 18（350 / 20）</td></tr><tr><td class=l><code>score_fired</code></td><td class=l>计分发射数：剔除“击毁瞬间仍在空中”的子弹，但<b>包含</b>“已打出、且在击毁之后才落到靶上”的子弹</td></tr><tr><td class=l><code>score_hit_rate</code></td><td class=l>valid_hits / score_fired</td></tr></table>
+<h3>2.2 数据：固定靶的三轮拆解</h3>
+<table><tr><th class=l>场景</th><th>轮</th><th>实际发射</th><th>计分发射</th><th>命中</th><th>落地</th><th>离靶/超时</th><th>其中死后弹</th><th>命中率</th><th>飞行时间</th></tr>
+<tr><td class=l>4m固定靶</td><td>1</td><td>21</td><td>19</td><td>18</td><td>0</td><td>0</td><td>1</td><td><b>0.9474</b></td><td>0.17 s</td></tr>
+<tr><td class=l>4m固定靶</td><td>2</td><td>21</td><td>19</td><td>18</td><td>0</td><td>0</td><td>1</td><td><b>0.9474</b></td><td>0.17 s</td></tr>
+<tr><td class=l>4m固定靶</td><td>3</td><td>20</td><td>19</td><td>18</td><td>0</td><td>0</td><td>1</td><td><b>0.9474</b></td><td>0.17 s</td></tr>
+<tr><td class=l>6m固定靶</td><td>1</td><td>22</td><td>20</td><td>18</td><td>0</td><td>0</td><td>2</td><td><b>0.9000</b></td><td>0.26 s</td></tr>
+<tr><td class=l>6m固定靶</td><td>2</td><td>18</td><td>18</td><td>18</td><td>0</td><td>0</td><td>0</td><td><b>1.0000</b></td><td>0.26 s</td></tr>
+<tr><td class=l>6m固定靶</td><td>3</td><td>20</td><td>19</td><td>18</td><td>0</td><td>0</td><td>1</td><td><b>0.9474</b></td><td>0.26 s</td></tr>
+<tr><td class=l>10m固定靶</td><td>1</td><td>21</td><td>19</td><td>18</td><td>0</td><td>0</td><td>1</td><td><b>0.9474</b></td><td>0.43 s</td></tr>
+<tr><td class=l>10m固定靶</td><td>2</td><td>23</td><td>21</td><td>18</td><td>0</td><td>0</td><td>3</td><td><b>0.8571</b></td><td>0.43 s</td></tr>
+<tr><td class=l>10m固定靶</td><td>3</td><td>23</td><td>22</td><td>18</td><td>0</td><td>0</td><td>4</td><td><b>0.8182</b></td><td>0.43 s</td></tr>
+</table>
+<h3>2.3 上限是怎么算出来的</h3>
+<div class="note">节点以 10 Hz 连续输出 <code>fire=true</code>，而子弹要飞 <code>d/23</code> 秒才到靶。击毁发生在第 18 发<b>命中</b>的瞬间，而在那之前，枪口已经把后面几发打出去了：<br>· 4 m：飞行 0.17 s → 空中恒有约 <b>1.7 发</b>；<br>· 6 m：0.26 s → 约 <b>2.6 发</b>；<br>· 10 m：0.43 s → 约 <b>4.3 发</b>。<br>这些“多打”的弹里，击毁瞬间仍在空中的不计分（<code>score_fired</code> 帮我们扣掉了），已经落地的不算命中但照样进分母。所以命中率的理论上限是 <b>18 / (18 + 已落地的那几发)</b>。</div>
+<table><tr><th class=l>场景</th><th>平均计分发射</th><th>其中死后弹</th><th>理论命中率上限（若仅 1 发落地）</th><th>实测</th></tr>
+<tr><td class=l>4m固定靶</td><td>19.0</td><td>1.0</td><td>0.9474（18/19）</td><td><b>0.9474</b></td></tr>
+<tr><td class=l>6m固定靶</td><td>19.0</td><td>1.0</td><td>0.9474（18/19）</td><td><b>0.9491</b></td></tr>
+<tr><td class=l>10m固定靶</td><td>20.7</td><td>2.7</td><td>0.9474（18/19）</td><td><b>0.8742</b></td></tr>
+</table>
+<div class="note warn">所以 <b>4 m 的 0.9474 已经是这份代码在该场景的极限值</b>：三轮都是 21/21/20 发打 18 中、落地 0，只多出 1 发死后弹，正好 18/19。6 m 第 2 轮拿到 <b>1.0000</b>，是因为那一局多打的 2 发恰好还都在空中（<code>score_fired=18</code>），属于时序上的运气；同场景另两轮是 0.9000 / 0.9474，平均 0.9491。10 m 掉到 0.82~0.95，是因为飞行时间翻倍，死后弹涨到 1~4 发，分母被撑大。</div>
+<div class="note">想拿 100% 只有一条路：<b>打满 18 发就立刻停火</b>。但那要求每发都等到落点回执再决定要不要补射，等于把“连发”退化成“单发点射”，击毁时间会从 2 s 级涨到 4 s 以上。考核同时看“命中率高”和“击毁时间短”，这两项在固定靶上互相拉扯，本方案选择<b>时间优先</b>：用连续 10 Hz 压制，把 T 压到 2.0~2.4 s，代价就是 1~4 发死后弹。</div>
+<h2>三、逐项详情与截图</h2>
+<h3>任务一 · 4m固定靶 &nbsp;<span class=tag>平均命中率 0.9474</span><span class=tag g>平均击毁 2.04 s</span></h3>
+<div class="fig">
+<figure><img src="成绩截图/裁剪/1_4m固定靶_第1轮_0.9474_2.02s.png" alt="4m固定靶"><figcaption><b>第1轮</b><br>命中率 0.9474 · 击毁 2.02 s<br>发 21 / 计分 19 / 命中 18<br>落地 0 · 离靶 0 · 死后 1</figcaption></figure>
+<figure><img src="成绩截图/裁剪/1_4m固定靶_第2轮_0.9474_2.04s.png" alt="4m固定靶"><figcaption><b>第2轮</b><br>命中率 0.9474 · 击毁 2.04 s<br>发 21 / 计分 19 / 命中 18<br>落地 0 · 离靶 0 · 死后 1</figcaption></figure>
+<figure><img src="成绩截图/裁剪/1_4m固定靶_第3轮_0.9474_2.04s.png" alt="4m固定靶"><figcaption><b>第3轮</b><br>命中率 0.9474 · 击毁 2.04 s<br>发 20 / 计分 19 / 命中 18<br>落地 0 · 离靶 0 · 死后 1</figcaption></figure>
+</div>
+<h3>任务二 · 6m固定靶 &nbsp;<span class=tag>平均命中率 0.9491</span><span class=tag g>平均击毁 2.28 s</span></h3>
+<div class="fig">
+<figure><img src="成绩截图/裁剪/2_6m固定靶_第1轮_0.9000_2.38s.png" alt="6m固定靶"><figcaption><b>第1轮</b><br>命中率 0.9000 · 击毁 2.38 s<br>发 22 / 计分 20 / 命中 18<br>落地 0 · 离靶 0 · 死后 2</figcaption></figure>
+<figure><img src="成绩截图/裁剪/2_6m固定靶_第2轮_1.0000_2.33s.png" alt="6m固定靶"><figcaption><b>第2轮</b><br>命中率 1.0000 · 击毁 2.33 s<br>发 18 / 计分 18 / 命中 18<br>落地 0 · 离靶 0 · 死后 0</figcaption></figure>
+<figure><img src="成绩截图/裁剪/2_6m固定靶_第3轮_0.9474_2.12s.png" alt="6m固定靶"><figcaption><b>第3轮</b><br>命中率 0.9474 · 击毁 2.12 s<br>发 20 / 计分 19 / 命中 18<br>落地 0 · 离靶 0 · 死后 1</figcaption></figure>
+</div>
+<h3>任务三 · 10m固定靶 &nbsp;<span class=tag>平均命中率 0.8742</span><span class=tag g>平均击毁 2.32 s</span></h3>
+<div class="fig">
+<figure><img src="成绩截图/裁剪/3_10m固定靶_第1轮_0.9474_2.30s.png" alt="10m固定靶"><figcaption><b>第1轮</b><br>命中率 0.9474 · 击毁 2.30 s<br>发 21 / 计分 19 / 命中 18<br>落地 0 · 离靶 0 · 死后 1</figcaption></figure>
+<figure><img src="成绩截图/裁剪/3_10m固定靶_第2轮_0.8571_2.31s.png" alt="10m固定靶"><figcaption><b>第2轮</b><br>命中率 0.8571 · 击毁 2.31 s<br>发 23 / 计分 21 / 命中 18<br>落地 0 · 离靶 0 · 死后 3</figcaption></figure>
+<figure><img src="成绩截图/裁剪/3_10m固定靶_第3轮_0.8182_2.35s.png" alt="10m固定靶"><figcaption><b>第3轮</b><br>命中率 0.8182 · 击毁 2.35 s<br>发 23 / 计分 22 / 命中 18<br>落地 0 · 离靶 0 · 死后 4</figcaption></figure>
+</div>
+<h3>任务四 · 6m平移 &nbsp;<span class=tag>平均命中率 0.7826</span><span class=tag g>平均击毁 3.05 s</span></h3>
+<div class="fig">
+<figure><img src="成绩截图/裁剪/4_6m平移_第1轮_0.7826_3.17s.png" alt="6m平移"><figcaption><b>第1轮</b><br>命中率 0.7826 · 击毁 3.17 s<br>发 25 / 计分 23 / 命中 18<br>落地 7 · 离靶 0 · 死后 5</figcaption></figure>
+<figure><img src="成绩截图/裁剪/4_6m平移_第2轮_0.7826_3.15s.png" alt="6m平移"><figcaption><b>第2轮</b><br>命中率 0.7826 · 击毁 3.15 s<br>发 25 / 计分 23 / 命中 18<br>落地 7 · 离靶 0 · 死后 5</figcaption></figure>
+<figure><img src="成绩截图/裁剪/4_6m平移_第3轮_0.7826_2.82s.png" alt="6m平移"><figcaption><b>第3轮</b><br>命中率 0.7826 · 击毁 2.82 s<br>发 24 / 计分 23 / 命中 18<br>落地 6 · 离靶 0 · 死后 5</figcaption></figure>
+</div>
+<div class="note warn">本项落地弹平均 <b>6.7 发</b>、离靶/超时 <b>0.0 发</b>，这部分是<b>真的脱靶</b>（不是死后弹），也是这一项命中率低于 0.95 的原因。</div>
+<h3>任务五 · 6m旋转 &nbsp;<span class=tag>平均命中率 0.8442</span><span class=tag g>平均击毁 2.64 s</span></h3>
+<div class="fig">
+<figure><img src="成绩截图/裁剪/5_6m旋转_第1轮_0.8571_2.63s.png" alt="6m旋转"><figcaption><b>第1轮</b><br>命中率 0.8571 · 击毁 2.63 s<br>发 23 / 计分 21 / 命中 18<br>落地 1 · 离靶 3 · 死后 3</figcaption></figure>
+<figure><img src="成绩截图/裁剪/5_6m旋转_第2轮_0.8182_2.64s.png" alt="6m旋转"><figcaption><b>第2轮</b><br>命中率 0.8182 · 击毁 2.64 s<br>发 24 / 计分 22 / 命中 18<br>落地 1 · 离靶 4 · 死后 4</figcaption></figure>
+<figure><img src="成绩截图/裁剪/5_6m旋转_第3轮_0.8571_2.64s.png" alt="6m旋转"><figcaption><b>第3轮</b><br>命中率 0.8571 · 击毁 2.64 s<br>发 23 / 计分 21 / 命中 18<br>落地 1 · 离靶 4 · 死后 3</figcaption></figure>
+</div>
+<div class="note warn">本项落地弹平均 <b>1.0 发</b>、离靶/超时 <b>3.7 发</b>，这部分是<b>真的脱靶</b>（不是死后弹），也是这一项命中率低于 0.95 的原因。</div>
+<h3>任务六 · 6m平移加旋转 &nbsp;<span class=tag>平均命中率 0.6004</span><span class=tag g>平均击毁 5.57 s</span></h3>
+<div class="fig">
+<figure><img src="成绩截图/裁剪/6_6m平移加旋转_第1轮_0.6000_5.61s.png" alt="6m平移加旋转"><figcaption><b>第1轮</b><br>命中率 0.6000 · 击毁 5.61 s<br>发 32 / 计分 30 / 命中 18<br>落地 13 · 离靶 1 · 死后 12</figcaption></figure>
+<figure><img src="成绩截图/裁剪/6_6m平移加旋转_第2轮_0.5806_5.60s.png" alt="6m平移加旋转"><figcaption><b>第2轮</b><br>命中率 0.5806 · 击毁 5.60 s<br>发 32 / 计分 31 / 命中 18<br>落地 11 · 离靶 2 · 死后 13</figcaption></figure>
+<figure><img src="成绩截图/裁剪/6_6m平移加旋转_第3轮_0.6207_5.49s.png" alt="6m平移加旋转"><figcaption><b>第3轮</b><br>命中率 0.6207 · 击毁 5.49 s<br>发 30 / 计分 29 / 命中 18<br>落地 7 · 离靶 3 · 死后 11</figcaption></figure>
+</div>
+<div class="note warn">本项落地弹平均 <b>10.3 发</b>、离靶/超时 <b>2.0 发</b>，这部分是<b>真的脱靶</b>（不是死后弹），也是这一项命中率低于 0.95 的原因。</div>
+<h2>四、结论与不足</h2>
+<div class="note">前三项（固定靶）已到该配置的计分上限，剩余误差全在“死后弹”，继续调参没有收益。<b>真正可改进的是第六项</b>：平均 0.6004 / 5.57 s，31 发才打爆 18 发，落地 10.3 发、离靶 2.0 发，是六项里唯一没进 3 s 的。根因是折返段速度接近 0 时拟合残差升高触发主动停火，叠加旋转靶 70° 级提前量下的选板抖动。下一步按“四板加权平均重建板心 + 连续相位预测”重写状态估计，而不是继续调阈值。</div>
+<h2>五、合规与复现</h2>
+<div class=note>· 未修改仿真逻辑、目标运动参数、伤害与命中判定；未使用内置辅助瞄准；未通过 ROS 2 接口以外的通道读取真值；全程无人手动控云台或开火。<br>· 只订阅 <code>/aim_sim/armors</code>、<code>/aim_sim/gimbal</code>、<code>/aim_sim/telemetry</code>，只发布 <code>/aim_sim/command</code>。<br>· 复现：<code>colcon build --packages-select student_auto_aim</code> → <code>./run.sh</code> → <code>ros2 run student_auto_aim aim_node --ros-args -p use_sim_time:=true</code>，每局按 R 归零后开打。</div>
+<footer>截图说明：界面上的 <code>T</code> 是本局累计仿真时间（含击毁后到点击导出的间隔），与本报告中的 <code>kill_time</code> 不完全相等；<code>kill_time</code> 取自导出的 JSON，两者趋势一致、可用于互证。<br>原始文件：<code>成绩/</code> 下 18 份 JSON（仿真 captures 原文件，仅重命名），<code>成绩截图/</code> 下 18 张原始整屏截图与 <code>裁剪/</code> 下 18 张窗口截图。</footer>
+</body></html>
